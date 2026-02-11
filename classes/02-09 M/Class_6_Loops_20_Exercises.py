@@ -5,6 +5,8 @@
 
 # %%
 # TODO: write your solution below
+for i in range(1, 11):
+    print(i)
 
 
 # %%
@@ -14,6 +16,8 @@
 
 # %%
 # TODO: write your solution below
+for i in range (0, 21, 2):
+    print (i)
 
 
 # %%
@@ -23,6 +27,13 @@
 
 # %%
 # TODO: write your solution below
+word = banana
+count = 0
+for chr in word:
+    if chr == 'a':
+        count += 1
+        print(count)
+
 
 
 # %%
@@ -37,7 +48,13 @@
 
 # %%
 # TODO: write your solution below
+names = ["Bob", "Alice", "Jen"]
+scores = [88, 92, 95]
 
+for name, score in zip(names, scores):
+    print(name, score)
+
+for name in names
 
 # %%
 # Exercise 5
@@ -51,6 +68,10 @@
 # %%
 # TODO: write your solution below
 
+d = {"a": 1, "b": 2, "c": 3}
+for key in d:
+    print(key, '->', d[key])
+
 
 # %%
 # Exercise 6
@@ -61,7 +82,10 @@
 
 # %%
 # TODO: write your solution below
-
+lst = [1, 3, -5, 66, 77, -77, -88, 34, -22, 5, 9]
+for digit in lst:
+    ig digit >= 0: print(digit)
+ 
 
 # %%
 # Exercise 7
