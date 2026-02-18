@@ -59,10 +59,6 @@ functions2.py is directly in 02-17 TUESDAY/
     functions2.py
 '''
 
-from functions2 import print_header, print_dict                         #9
-from functions2 import print_header as ph, print_dict as pd             #10
-from functions2 import *                                                #11
-
 #Valid Calls
 import functions2                                                       #7
 functions2.print_dict(dic)                                              #7
@@ -74,6 +70,7 @@ g2.print_dict(dic)                                                      #8
 g2.print_header("hello")                                                #8
 
 #valid calls
+
 from functions2 import print_header, print_dict                         #9
 from functions2 import *                                                #11
 
