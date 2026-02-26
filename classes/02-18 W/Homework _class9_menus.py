@@ -1,4 +1,7 @@
-'''
+
+
+
+\'''
 We want to create a command line driven menu system with 4 levels
 
 1. Clients
@@ -163,7 +166,7 @@ while True:
                         # no options leaf
                         print('you have reached View Client Summary')
                         print('returning to level 3') 
-                        fn2.pause(1)
+                        fn2.pause(3)
                         
                         continue # not needed but shows intent
                            
@@ -174,7 +177,7 @@ while True:
                         # no options leaf
                         print('you have reached Manage Client Cash')
                         print('returning to level 3') 
-                        fn2.pause(1)
+                        fn2.pause(3)
 
                         continue # not needed but shows intent
 
@@ -197,7 +200,7 @@ while True:
                         # no options leaf
                         print('you have reached New Individual')
                         print('returning to level 3') 
-                        fn2.pause(1)
+                        fn2.pause(3)
 
                         continue # not needed but shows intent
                            
@@ -208,25 +211,85 @@ while True:
                         # no options leaf
                         print('you have reached New Joint')
                         print('returning to level 3') 
-                        fn2.pause(1) 
+                        fn2.pause(3) 
 
                         continue # not needed but shows intent   
     elif choice == 2:
         while True:
             fn2.clear_screen()
-            fn2.print_header('Portfolios level 2')            
-            options = ['Trade', 'Performance'] # level 2
-            ''' TODO
-                 .
-                 .
-                 .
-                 .
-            '''
-            print("This side of our menu is not yet implemented. ") 
-            fn2.pause(2)
-            fn2.clear_screen()
-            exit()
-        
+            fn2.print_header('Portfolios level 2')
+            options=['Trade', 'Performance'] #level 2 options
+            fn2.display_menu(options)
+            choice = fn2.get_menu_choice(options)
 
+            if choice is None:
+                print('return to level 1')
+                fn2.pause(1)
+                break
+            elif choice == 1:
+                while True:
+                    fn2.clear_screen()
+                    fn2.print_header('Trade level 3')
+                    options=['Buy', 'Sell'] #level 3 options
+                    fn2.display_menu(options)
+                    choice = fn2.get_menu_choice(options)
 
+                    if choice is None:
+                        print('return to level 2')
+                        fn2.pause(1)
+                        break
+                    elif choice == 1:
+                        # no while statement leaf
+                        fn2.clear_screen()
+                        fn2.print_header('Buy level 4')
+                        # no options leaf
+                        print('you have reached Buy page')
+                        print('returning to level 3') 
+                        fn2.pause(3)
+                        
+                        continue # not needed but shows intent
+                           
+                    elif choice == 2:
+                        # no while statement leaf
+                        fn2.clear_screen()
+                        fn2.print_header('Sell level 4')
+                        # no options leaf
+                        print('you have reached Sell Page')
+                        print('returning to level 3') 
+                        fn2.pause(3)
 
+                        continue # not needed but shows intent
+
+            elif choice == 2:
+                while True:
+                    fn2.clear_screen()
+                    fn2.print_header('Performance level 3')
+                    options=['Holdings Snapshot', 'P/L Report'] #level 3 options
+                    fn2.display_menu(options)
+                    choice = fn2.get_menu_choice(options)
+
+                    if choice is None:
+                        print('return to level 2')
+                        fn2.pause(1)
+                        break
+                    elif choice == 1:
+                        # no while statement leaf
+                        fn2.clear_screen()
+                        fn2.print_header('Holdings Snapshot level 4')
+                        # no options leaf
+                        print('you have reached Holdings Snapshot')
+                        print('returning to level 3') 
+                        fn2.pause(3)
+
+                        continue # not needed but shows intent
+                           
+                    elif choice == 2:
+                        # no while statement leaf
+                        fn2.clear_screen()
+                        fn2.print_header('P/L Report level 4')
+                        # no options leaf
+                        print('you have reached P/L Report')
+                        print('returning to level 3') 
+                        fn2.pause(3) 
+
+                        continue # not needed but shows intent   
