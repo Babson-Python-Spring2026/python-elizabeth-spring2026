@@ -1,7 +1,7 @@
 
 
 
-\'''
+'''
 We want to create a command line driven menu system with 4 levels
 
 1. Clients
@@ -34,18 +34,29 @@ The left hand side (LHS) is provided below. Your job:
 
 2) explain in your own words what the program does
     a) Try to include state, transitions and invariants
+State has two kinds. Pure state is what you absolutely must store — here that's the to_top boolean and implicitly which loop is currently executing. 
+Derived state is things you could figure out from pure state if needed, so you don't strictly have to store them.
+Transitions are anything that changes state. Here that's the user picking a number (goes deeper) or hitting enter/back (returns None, triggers break to go up one level).
+Invariants are rules that state must always obey. The key one here is: to_top is only cleared at the top level, never mid-unwind. 
+That guarantees every intermediate loop breaks cleanly without reprinting a menu.
     b) Does menu control come from logic or program structure
-
+Logic vs. program structure — control comes from program structure, not logic. 
+The menu tree is literally encoded as nested while loops. The only explicit logic is to_top, which is needed because break can only exit one loop at a time. 
+This is also considered bad design because the data and the structure are tangled together — changing the menu requires rewriting the code.
 3) assume you are at a leaf endpoint. Instead of returning to level 3
    return to level 1
-
+Set to_top = False above all loops. At any leaf, set to_top = True and break. 
+In each enclosing loop, check if to_top: break right after the inner loop exits. 
+At the top level, reset to_top = False.
 4) How many discrete paths are in this menu system
+8 paths — the tree starts with 2 options, splits to 4, then splits to 8 leaves.
 '''
 '''
+
 OIM 3600 - Menu Navigation Assignment Rubric
 --------------------------------------------
 
-Student Name: ______________________
+Student Name: ___Elizabeth Tran___________________
 Score: ______ / 100
 
 
@@ -115,11 +126,7 @@ A (90-100)
 - STI explanation clearly distinguishes state vs control flow
 '''
 
-
-'''
-THIS ASSIGNMENT WILL BE DUE 2/25 (NEXT WEDNESDAY) SO YOU CAN ASK QUESTIONS NEXT MONDAY (2/23)
-'''
-
+# THIS ASSIGNMENT WILL BE DUE 2/25 (NEXT WEDNESDAY) SO YOU CAN ASK QUESTIONS NEXT MONDAY (2/23)
 
 
 import functions2 as fn2
@@ -293,3 +300,177 @@ while True:
                         fn2.pause(3) 
 
                         continue # not needed but shows intent   
+
+# student answer
+import functions2 as fn2
+
+to_top = False
+
+while True:
+    to_top = False  # cleared only at TOP level
+    fn2.clear_screen()
+    fn2.print_header('Top Menu level 1')
+    options = ['Clients', 'Portfolios']
+    fn2.display_menu(options)
+    choice = fn2.get_menu_choice(options)
+
+    if choice is None:
+        print('exit top level menu')
+        fn2.pause(1)
+        break
+
+    elif choice == 1:  # CLIENTS BRANCH
+        while True:
+            fn2.clear_screen()
+            fn2.print_header('Clients level 2')
+            options = ['Select Client', 'Create Client']
+            fn2.display_menu(options)
+            choice = fn2.get_menu_choice(options)
+
+            if choice is None:
+                print('return to level 1')
+                fn2.pause(1)
+                break
+            elif choice == 1:
+                while True:
+                    fn2.clear_screen()
+                    fn2.print_header('Select Client level 3')
+                    options = ['View Client Summary', 'Manage Client Cash']
+                    fn2.display_menu(options)
+                    choice = fn2.get_menu_choice(options)
+
+                    if choice is None:
+                        print('return to level 2')
+                        fn2.pause(1)
+                        break
+                    elif choice == 1:
+                        fn2.clear_screen()
+                        fn2.print_header('View Client Summary level 4')
+                        print('you have reached View Client Summary')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                    elif choice == 2:
+                        fn2.clear_screen()
+                        fn2.print_header('Manage Client Cash level 4')
+                        print('you have reached Manage Client Cash')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                if to_top:
+                    break  # break level 2 loop
+
+            elif choice == 2:
+                while True:
+                    fn2.clear_screen()
+                    fn2.print_header('Create Client level 3')
+                    options = ['New Individual', 'New Joint']
+                    fn2.display_menu(options)
+                    choice = fn2.get_menu_choice(options)
+
+                    if choice is None:
+                        print('return to level 2')
+                        fn2.pause(1)
+                        break
+                    elif choice == 1:
+                        fn2.clear_screen()
+                        fn2.print_header('New Individual level 4')
+                        print('you have reached New Individual')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                    elif choice == 2:
+                        fn2.clear_screen()
+                        fn2.print_header('New Joint level 4')
+                        print('you have reached New Joint')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                if to_top:
+                    break  # break level 2 loop
+
+    elif choice == 2:  # PORTFOLIOS BRANCH
+        while True:
+            fn2.clear_screen()
+            fn2.print_header('Portfolios level 2')
+            options = ['Trade', 'Performance']
+            fn2.display_menu(options)
+            choice = fn2.get_menu_choice(options)
+
+            if choice is None:
+                print('return to level 1')
+                fn2.pause(1)
+                break
+            elif choice == 1:
+                while True:
+                    fn2.clear_screen()
+                    fn2.print_header('Trade level 3')
+                    options = ['Buy', 'Sell']
+                    fn2.display_menu(options)
+                    choice = fn2.get_menu_choice(options)
+
+                    if choice is None:
+                        print('return to level 2')
+                        fn2.pause(1)
+                        break
+                    elif choice == 1:
+                        fn2.clear_screen()
+                        fn2.print_header('Buy level 4')
+                        print('you have reached Buy')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                    elif choice == 2:
+                        fn2.clear_screen()
+                        fn2.print_header('Sell level 4')
+                        print('you have reached Sell')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                if to_top:
+                    break  # break level 2 loop
+
+            elif choice == 2:
+                while True:
+                    fn2.clear_screen()
+                    fn2.print_header('Performance level 3')
+                    options = ['Holdings Snapshot', 'P/L Report']
+                    fn2.display_menu(options)
+                    choice = fn2.get_menu_choice(options)
+
+                    if choice is None:
+                        print('return to level 2')
+                        fn2.pause(1)
+                        break
+                    elif choice == 1:
+                        fn2.clear_screen()
+                        fn2.print_header('Holdings Snapshot level 4')
+                        print('you have reached Holdings Snapshot')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                    elif choice == 2:
+                        fn2.clear_screen()
+                        fn2.print_header('P/L Report level 4')
+                        print('you have reached P/L Report')
+                        print('returning to level 1')
+                        fn2.pause(1)
+                        to_top = True
+                        break  # break level 3 loop
+
+                if to_top:
+                    break  # break level 2 loop

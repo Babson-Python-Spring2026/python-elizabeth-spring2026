@@ -30,13 +30,23 @@ The left hand side (LHS) is provided below. Your job:
     b) changing what gets printed
 
 2) explain in your own words what the program does
-    a) Try to include state, transitions and invariants
+     a) Try to include state, transitions and invariants
+State has two kinds. Pure state is what you absolutely must store — here that's the to_top boolean and implicitly which loop is currently executing. 
+Derived state is things you could figure out from pure state if needed, so you don't strictly have to store them.
+Transitions are anything that changes state. Here that's the user picking a number (goes deeper) or hitting enter/back (returns None, triggers break to go up one level).
+Invariants are rules that state must always obey. The key one here is: to_top is only cleared at the top level, never mid-unwind. 
+That guarantees every intermediate loop breaks cleanly without reprinting a menu.
     b) Does menu control come from logic or program structure
-
+Logic vs. program structure — control comes from program structure, not logic. 
+The menu tree is literally encoded as nested while loops. The only explicit logic is to_top, which is needed because break can only exit one loop at a time. 
+This is also considered bad design because the data and the structure are tangled together — changing the menu requires rewriting the code.
 3) assume you are at a leaf endpoint. Instead of returning to level 3
    return to level 1
-
+Set to_top = False above all loops. At any leaf, set to_top = True and break. 
+In each enclosing loop, check if to_top: break right after the inner loop exits. 
+At the top level, reset to_top = False.
 4) How many discrete paths are in this menu system
+8 paths — the tree starts with 2 options, splits to 4, then splits to 8 leaves.
 '''
 '''
 OIM 3600 - Menu Navigation Assignment Rubric
