@@ -1,3 +1,12 @@
+'''
+Very strong work. The file is complete, readable, and shows confidence 
+with imports and overall program flow. There may be a small index/interface 
+issue in is_valid_move(), but overall this is one of the stronger submissions
+
+Graded 95
+
+'''
+
 """
 TIC TAC TOE — FUNCTION SCAFFOLD
 
