@@ -1,3 +1,44 @@
+'''
+Elizabeth — 9 / 10
+
+Overall
+
+Excellent submission. The student clearly understands the computational model of the program.
+
+Strengths
+
+Strong explanation of state variables.
+Clear description of backtracking via undo.
+Correct understanding of symmetry reduction and canonical representation.
+Good docstrings that explain the purpose of helper functions.
+
+Example of good reasoning:
+The student explicitly connects undoing moves to the fact that the program uses one shared board object rather than creating new boards.
+
+Weaknesses
+
+Minor formatting issues.
+Slightly verbose explanations in places.
+
+AI likelihood
+
+Moderate.
+
+Reasons:
+
+Writing is unusually polished for an intro class.
+Structure of explanations resembles AI-generated summaries.
+
+However:
+
+The explanations include some subtle reasoning that suggests genuine understanding.
+
+Estimated probability of AI assistance: 40–50%
+
+GRADE 95
+
+'''
+
 """
 Homework: Reading Code with State / Transitions / Invariants (Tic-Tac-Toe)
 
