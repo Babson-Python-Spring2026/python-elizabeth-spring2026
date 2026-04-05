@@ -1,0 +1,14 @@
+{
+  "description": "Stock split events with explicit share ratio components",
+  "splits": [
+    {
+      "date": "2025-11-17",
+      "ticker": "NFLX",
+      "ratio": {
+        "new_shares": 10,
+        "old_shares": 1,
+        "factor": 10
+      }
+    }
+  ]
+}
