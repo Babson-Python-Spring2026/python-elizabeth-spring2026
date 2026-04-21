@@ -14,3 +14,5 @@ class PortfolioSystem:
     
     def first_date(self):
         return self.mkt_dates[0]
+    
+    my_Port = PortfolioSystem([], [])

@@ -34,11 +34,6 @@ def analyze_runs(nums):
             current_run = [current]
             current_direction = "none"
 
-    if len(longest_increasing) >= len(longest_decreasing):
-        longest_run_values = longest_increasing
-    else:
-        longest_run_values = longest_decreasing
-
     return {
         "longest_increasing_run": len(longest_increasing),
         "longest_decreasing_run": len(longest_decreasing),
