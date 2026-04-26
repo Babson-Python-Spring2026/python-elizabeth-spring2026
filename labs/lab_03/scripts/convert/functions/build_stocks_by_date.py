@@ -1,185 +1,221 @@
-"""
-build_stocks_by_date.py
-
-State read:
-    transactions.json, prices_dates.json, mkt_dates.json
-
-Transition logic:
-    For each market date:
-        1. carry forward prior positions
-        2. apply splits for that date
-        3. apply stock transactions (buy/sell) for that date
-        4. store snapshot
-
-Invariant:
-    stocks_by_date[d] reflects all buys, sells, and splits through date d;
-    average_cost is the share-weighted average of all purchase prices,
-    adjusted downward by any splits
-"""
+# build_stocks_by_date.py
+#
+# Reads:
+#   functions/transactions.json    — [{date, type, ticker, shares, price, ...}]
+#   functions/prices_dates.json    — {date: [{ticker, raw_price, shares_in, shares_out, dividend}]}
+#   functions/mkt_dates.json       — [date_str, ...]  sorted ascending
+#
+# Writes:
+#   functions/stocks_by_date.json  — {date: [{ticker, shares, average_cost}]}
+#
+# For each market date:
+# 1. carry forward prior positions
+# 2. apply splits for that date
+# 3. apply stock transactions for that date
+# 4. store snapshot
+#
+# Invariants:
+#   - stocks_by_date[d] reflects all buys, sells, and splits through date d
+#   - average_cost is the share-weighted average of all purchase prices,
+#     adjusted downward by any splits
+#   - zero (or negative) share positions are removed from the snapshot
+#   - output rows are sorted by ticker
 
 import json
 from pathlib import Path
 
 # ── paths ──────────────────────────────────────────────────────────────────────
-LAB_ROOT             = Path(__file__).parent.parent.parent.parent
-TRANSACTIONS_FILE    = LAB_ROOT / "data/system/transactions/transactions.json"
-PRICES_DATES_FILE    = LAB_ROOT / "data/system/prices_dates.json"
-MKT_DATES_FILE       = LAB_ROOT / "data/system/mkt_dates.json"
-STOCKS_BY_DATE_FILE  = LAB_ROOT / "data/system/positions_by_date/stocks_by_date.json"
 
+SCRIPT_DIR          = Path(__file__).parent
+FUNCTIONS           = SCRIPT_DIR / "functions"
 
-# ── file helpers ───────────────────────────────────────────────────────────────
+TRANSACTIONS_FILE   = FUNCTIONS / "transactions.json"
+PRICES_DATES_FILE   = FUNCTIONS / "prices_dates.json"
+MKT_DATES_FILE      = FUNCTIONS / "mkt_dates.json"
+STOCKS_BY_DATE_FILE = FUNCTIONS / "stocks_by_date.json"
+
+# ── loaders ────────────────────────────────────────────────────────────────────
 
 def load_json(path):
     with open(path, "r") as f:
         return json.load(f)
 
+# ── groupers ───────────────────────────────────────────────────────────────────
 
-def save_json(path, data):
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
-        json.dump(data, f, indent=4)
-
-
-# ── group helpers ──────────────────────────────────────────────────────────────
-
-def group_transactions_by_date(transactions):
+def group_transactions_by_date(transactions, mkt_date_set):
     """
-    Return {date: [tx, ...]} for buy/sell transactions only.
-    Contribution and withdrawal records are excluded (cash-only events).
-    The cash ticker '$$$$' is also excluded.
+    Index buy/sell transactions by date.
+    Skips any transaction whose date is not in mkt_date_set (silent skip).
+    Skips any transaction whose type is not 'buy' or 'sell'.
+    Returns {date: [tx, ...]}
     """
-    result = {}
+    by_date = {}
     for tx in transactions:
-        if tx["type"] not in ("buy", "sell"):
+        if tx["date"] not in mkt_date_set:
             continue
-        if tx.get("ticker") == "$$$$":
+        if tx.get("type", "").lower() not in ("buy", "sell"):
             continue
-        result.setdefault(tx["date"], []).append(tx)
-    return result
+        by_date.setdefault(tx["date"], []).append(tx)
+    return by_date
 
 
-def build_split_lookup(prices_by_date):
+def build_split_lookup(prices_dates):
     """
-    Return {date: {ticker: split_factor}} for every date that has a split.
-    split_factor = shares_out / shares_in  (e.g., 2.0 for a 2-for-1 split).
+    Build a lookup of real splits only (shares_in != shares_out).
+    Skips records where shares_in or shares_out is zero.
+    Returns {date: {ticker: {shares_in, shares_out}}}
     """
-    result = {}
-    for date, entries in prices_by_date.items():
-        for entry in entries:
-            if entry["shares_in"] != entry["shares_out"]:
-                factor = entry["shares_out"] / entry["shares_in"]
-                result.setdefault(date, {})[entry["ticker"]] = factor
-    return result
+    lookup = {}
+    for date, records in prices_dates.items():
+        for record in records:
+            shares_in  = record.get("shares_in",  1)
+            shares_out = record.get("shares_out", 1)
+            if shares_in == 0 or shares_out == 0:
+                continue
+            if shares_in == shares_out:
+                continue
+            ticker = record["ticker"]
+            lookup.setdefault(date, {})[ticker] = {
+                "shares_in":  shares_in,
+                "shares_out": shares_out,
+            }
+    return lookup
 
+# ── position mutators ──────────────────────────────────────────────────────────
 
-# ── position update helpers ────────────────────────────────────────────────────
-
-def apply_split(position, split_factor):
+def apply_split(position, split_record):
     """
-    Return a new position dict after applying a split.
-    Shares multiply by split_factor; average_cost divides by split_factor
-    so total cost basis is preserved.
+    Apply a split to a single position in place.
+    factor        = shares_out / shares_in
+    new shares    = old shares * factor
+    new avg cost  = old avg cost / factor
+
+    position:     {"shares": float, "average_cost": float}
+    split_record: {"shares_in": float, "shares_out": float}
     """
-    return {
-        "shares":   position["shares"] * split_factor,
-        "avg_cost": position["avg_cost"] / split_factor,
-    }
+    factor                   = split_record["shares_out"] / split_record["shares_in"]
+    position["shares"]       = position["shares"] * factor
+    position["average_cost"] = position["average_cost"] / factor
 
 
-def apply_transaction(positions, tx):
+def apply_transaction(position, tx):
     """
-    Apply one buy or sell transaction to the positions dict in place.
+    Apply a single buy or sell transaction to a position in place.
 
-    Buy:  increase shares; recalculate average cost using weighted average.
-    Sell: decrease shares; average cost is unchanged.
-          If shares reach zero, the position is removed.
+    Buy:
+        new_shares    = old_shares + tx_shares
+        new_avg_cost  = (old_shares * old_avg + tx_shares * tx_price) / new_shares
 
-    Crossing-zero rule: selling more shares than held is not validated here;
-    the caller is responsible for ensuring the ledger is clean.
+    Sell (partial or full):
+        new_shares    = old_shares - tx_shares
+        average_cost  unchanged
+
+    Crossing-zero rule:
+        A sell that would push shares below zero is applied as-is.
+        The position will be caught and removed by the zero-position filter
+        in make_snapshot(). This should not occur with clean transaction data.
+
+    position: {"shares": float, "average_cost": float}  (mutated in place)
+    tx:       {"type": str, "shares": float, "price": float}
     """
-    ticker = tx["ticker"]
-    shares = tx["shares"]
-    price  = tx["price"]
+    tx_type   = tx["type"].lower()
+    tx_shares = float(tx["shares"])
+    tx_price  = float(tx["price"])
 
-    if tx["type"] == "buy":
-        if ticker not in positions:
-            positions[ticker] = {"shares": 0.0, "avg_cost": 0.0}
-        old_shares = positions[ticker]["shares"]
-        old_cost   = positions[ticker]["avg_cost"]
-        new_shares = old_shares + shares
-        if new_shares > 0:
-            new_avg_cost = (old_shares * old_cost + shares * price) / new_shares
-        else:
-            new_avg_cost = 0.0
-        positions[ticker] = {"shares": new_shares, "avg_cost": new_avg_cost}
+    if tx_type == "buy":
+        old_shares               = position["shares"]
+        old_avg                  = position["average_cost"]
+        new_shares               = old_shares + tx_shares
+        position["shares"]       = new_shares
+        position["average_cost"] = (old_shares * old_avg + tx_shares * tx_price) / new_shares
 
-    elif tx["type"] == "sell":
-        if ticker in positions:
-            positions[ticker]["shares"] -= shares
-            if positions[ticker]["shares"] <= 1e-9:
-                del positions[ticker]
+    elif tx_type == "sell":
+        position["shares"] -= tx_shares
+        # average_cost is unchanged on a sell
 
-    return positions
-
-
-# ── snapshot helper ────────────────────────────────────────────────────────────
+# ── snapshot ───────────────────────────────────────────────────────────────────
 
 def make_snapshot(positions):
     """
-    Convert {ticker: {shares, avg_cost}} to a sorted list of
-    {ticker, shares, average_cost} dicts. Zero positions are excluded.
+    Return a sorted list of position dicts for storage.
+    Excludes any ticker with zero or negative shares.
+    Output rows are sorted by ticker.
+
+    positions: {ticker: {"shares": float, "average_cost": float}}
+    Returns:   [{ticker, shares, average_cost}, ...]
     """
     return [
         {
             "ticker":       ticker,
-            "shares":       pos["shares"],
-            "average_cost": round(pos["avg_cost"], 6),
+            "shares":       positions[ticker]["shares"],
+            "average_cost": positions[ticker]["average_cost"],
         }
-        for ticker, pos in sorted(positions.items())
-        if pos["shares"] > 1e-9
+        for ticker in sorted(positions)
+        if positions[ticker]["shares"] > 0
     ]
 
-
-# ── main builder ───────────────────────────────────────────────────────────────
+# ── main ───────────────────────────────────────────────────────────────────────
 
 def build_stocks_by_date():
-    """
-    Rebuild stocks_by_date.json from scratch using transactions and price data.
+    mkt_dates    = load_json(MKT_DATES_FILE)
+    prices_dates = load_json(PRICES_DATES_FILE)
+    transactions = load_json(TRANSACTIONS_FILE)
 
-    State read:    transactions.json, prices_dates.json, mkt_dates.json
-    Transition:    for each market date: carry forward → splits → trades → snapshot
-    Invariant:     stocks_by_date[d] reflects all activity through date d
-    """
-    transactions   = load_json(TRANSACTIONS_FILE) if TRANSACTIONS_FILE.exists() else []
-    prices_by_date = load_json(PRICES_DATES_FILE)
-    mkt_dates      = load_json(MKT_DATES_FILE)
+    mkt_date_set  = set(mkt_dates)
+    txns_by_date  = group_transactions_by_date(transactions, mkt_date_set)
+    split_lookup  = build_split_lookup(prices_dates)
 
-    stock_txns_by_date = group_transactions_by_date(transactions)
-    split_lookup       = build_split_lookup(prices_by_date)
+    # find first market date that has a buy transaction
+    buy_dates      = sorted(d for d in txns_by_date if any(
+        t["type"].lower() == "buy" for t in txns_by_date[d]
+    ))
+    first_buy_date = buy_dates[0] if buy_dates else None
 
-    positions      = {}
     stocks_by_date = {}
+    # positions: {ticker: {"shares": float, "average_cost": float}}
+    positions = {}
 
     for date in mkt_dates:
-        # 1. carry forward — work on a fresh copy so prior snapshot is unaffected
+
+        # dates before first buy → empty snapshot, no processing
+        if first_buy_date is None or date < first_buy_date:
+            stocks_by_date[date] = []
+            continue
+
+        # 1. carry forward prior positions (deep copy to avoid mutation across dates)
         positions = {ticker: dict(pos) for ticker, pos in positions.items()}
 
         # 2. apply splits for this date
-        for ticker, factor in split_lookup.get(date, {}).items():
+        splits_today = split_lookup.get(date, {})
+        for ticker, split_record in splits_today.items():
             if ticker in positions:
-                positions[ticker] = apply_split(positions[ticker], factor)
+                apply_split(positions[ticker], split_record)
 
         # 3. apply stock transactions for this date
-        for tx in stock_txns_by_date.get(date, []):
-            apply_transaction(positions, tx)
+        for tx in txns_by_date.get(date, []):
+            ticker = tx["ticker"]
+            if tx["type"].lower() == "buy" and ticker not in positions:
+                # opening a new position
+                positions[ticker] = {"shares": 0.0, "average_cost": 0.0}
+            if ticker in positions:
+                apply_transaction(positions[ticker], tx)
 
-        # 4. store snapshot
+        # 4. store snapshot (removes zero/negative positions)
         stocks_by_date[date] = make_snapshot(positions)
 
-    save_json(STOCKS_BY_DATE_FILE, stocks_by_date)
-    print(f"  Built stocks_by_date for {len(stocks_by_date)} dates.")
-    return stocks_by_date
+        # keep positions dict in sync with snapshot (drop zeroes)
+        positions = {
+            ticker: positions[ticker]
+            for ticker in positions
+            if positions[ticker]["shares"] > 0
+        }
+
+    # write output
+    FUNCTIONS.mkdir(parents=True, exist_ok=True)
+    with open(STOCKS_BY_DATE_FILE, "w") as f:
+        json.dump(stocks_by_date, f, indent=2)
+
+    print(f"Wrote {len(stocks_by_date)} dates to {STOCKS_BY_DATE_FILE}")
 
 
 if __name__ == "__main__":
